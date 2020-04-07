@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<!-- saved from url=(0054)http://kvfrans.com/variational-autoencoders-explained/ -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>Variational Autoencoders Explained</title>
+    <meta name="description" content="">
+
+    <meta name="HandheldFriendly" content="True">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="shortcut icon" href="http://kvfrans.com/favicon.ico">
+
+    <link rel="stylesheet" type="text/css" href="./Variational Autoencoders Explained_files/prism.css">
+    <link rel="stylesheet" type="text/css" href="./Variational Autoencoders Explained_files/screen.css">
+    <link rel="stylesheet" type="text/css" href="./Variational Autoencoders Explained_files/css">
+
+    <link rel="canonical" href="http://kvfrans.com/variational-autoencoders-explained/">
+    <meta name="referrer" content="origin">
+    
+    <meta property="og:site_name" content="kevin frans blog">
+    <meta property="og:type" content="article">
+    <meta property="og:title" content="Variational Autoencoders Explained">
+    <meta property="og:description" content="In my previous post about generative adversarial networks, I went over a simple method to training a network that could generate realistic-looking images. However, there were a couple of downsides to using a plain GAN. First, the images are generated off some arbitrary noise. If you wanted to generate a">
+    <meta property="og:url" content="http://kvfrans.com/variational-autoencoders-explained/">
+    <meta property="article:published_time" content="2016-08-06T06:52:45.952Z">
+    <meta property="article:modified_time" content="2019-09-28T01:21:14.439Z">
+    <meta property="article:tag" content="tutorials">
+    
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Variational Autoencoders Explained">
+    <meta name="twitter:description" content="In my previous post about generative adversarial networks, I went over a simple method to training a network that could generate realistic-looking images. However, there were a couple of downsides to using a plain GAN. First, the images are generated off some arbitrary noise. If you wanted to generate a">
+    <meta name="twitter:url" content="http://kvfrans.com/variational-autoencoders-explained/">
+    
+    <script async="" src="./Variational Autoencoders Explained_files/analytics.js"></script><script type="application/ld+json">
+{
+    "@context": "http://schema.org",
+    "@type": "Article",
+    "publisher": "kevin frans blog",
+    "author": {
+        "@type": "Person",
+        "name": "Kevin Frans",
+        "url": "http://kvfrans.com/author/kevin/"
+    },
+    "headline": "Variational Autoencoders Explained",
+    "url": "http://kvfrans.com/variational-autoencoders-explained/",
+    "datePublished": "2016-08-06T06:52:45.952Z",
+    "dateModified": "2019-09-28T01:21:14.439Z",
+    "keywords": "tutorials",
+    "description": "In my previous post about generative adversarial networks, I went over a simple method to training a network that could generate realistic-looking images. However, there were a couple of downsides to using a plain GAN. First, the images are generated off some arbitrary noise. If you wanted to generate a"
+}
+    </script>
+
+    <meta name="generator" content="Ghost 0.7">
+    <link rel="alternate" type="application/rss+xml" title="kevin frans blog" href="http://kvfrans.com/rss/">
+<script data-dapp-detection="">
+(function() {
+  let alreadyInsertedMetaTag = false
+
+  function __insertDappDetected() {
+    if (!alreadyInsertedMetaTag) {
+      const meta = document.createElement('meta')
+      meta.name = 'dapp-detected'
+      document.head.appendChild(meta)
+      alreadyInsertedMetaTag = true
+    }
+  }
+
+  if (window.hasOwnProperty('web3')) {
+    // Note a closure can't be used for this var because some sites like
+    // www.wnyc.org do a second script execution via eval for some reason.
+    window.__disableDappDetectionInsertion = true
+    // Likely oldWeb3 is undefined and it has a property only because
+    // we defined it. Some sites like wnyc.org are evaling all scripts
+    // that exist again, so this is protection against multiple calls.
+    if (window.web3 === undefined) {
+      return
+    }
+    __insertDappDetected()
+  } else {
+    var oldWeb3 = window.web3
+    Object.defineProperty(window, 'web3', {
+      configurable: true,
+      set: function (val) {
+        if (!window.__disableDappDetectionInsertion)
+          __insertDappDetected()
+        oldWeb3 = val
+      },
+      get: function () {
+        if (!window.__disableDappDetectionInsertion)
+          __insertDappDetected()
+        return oldWeb3
+      }
+    })
+  }
+})()</script><script src="./Variational Autoencoders Explained_files/embed.js" data-timestamp="1585969475772"></script><style id="fit-vids-style">.fluid-width-video-wrapper{width:100%;position:relative;padding:0;}.fluid-width-video-wrapper iframe,.fluid-width-video-wrapper object,.fluid-width-video-wrapper embed {position:absolute;top:0;left:0;width:100%;height:100%;}</style><link rel="prefetch" as="style" href="https://c.disquscdn.com/next/embed/styles/lounge.a350bc8d547f936ff2ecac6703e762b5.css"><link rel="prefetch" as="script" href="https://c.disquscdn.com/next/embed/common.bundle.35e517736a0f081c6fbaee05b4da1b3a.js"><link rel="prefetch" as="script" href="https://c.disquscdn.com/next/embed/lounge.bundle.35fc407cbfeea32c905de98e4ed5ff4a.js"><link rel="prefetch" as="script" href="https://disqus.com/next/config.js"><script src="./Variational Autoencoders Explained_files/alfalfalfa.0823c767a3bc925f628afd9bed26c958.js" async="" charset="UTF-8"></script></head>
+<body class="post-template tag-tutorials nav-closed">
+
+    <div class="nav">
+    <h3 class="nav-title">Menu</h3>
+    <a href="http://kvfrans.com/variational-autoencoders-explained/#" class="nav-close">
+        <span class="hidden">Close</span>
+    </a>
+    <ul>
+            <li class="nav-home" role="presentation"><a href="http://kvfrans.com/">Home</a></li>
+            <li class="nav-github" role="presentation"><a href="https://github.com/kvfrans">Github</a></li>
+    </ul>
+    <a class="subscribe-button icon-feed" href="http://kvfrans.com/rss/">Subscribe</a>
+</div>
+<span class="nav-cover"></span>
+
+
+    <div class="site-wrapper">
+
+        
+
+
+<header class="main-header post-head no-cover">
+    <nav class="main-nav  clearfix">
+        
+            <a class="menu-button-back" href="http://kvfrans.com/"><span class="word">Home</span></a>
+    </nav>
+</header>
+
+<main class="content" role="main">
+    <article class="post tag-tutorials">
+
+        <header class="post-header">
+            <h1 class="post-title">Variational Autoencoders Explained</h1>
+            <section class="post-meta">
+                <time class="post-date" datetime="2016-08-06">06 August 2016</time>  on <a href="http://kvfrans.com/tag/tutorials/">tutorials</a>
+            </section>
+        </header>
+
+        <section class="post-content">
+            <p>In <a href="http://kvfrans.com/generative-adversial-networks-explained/">my previous post about generative adversarial networks</a>, I went over a simple method to training a network that could generate realistic-looking images.</p>
+
+<p>However, there were a couple of downsides to using a plain GAN.</p>
+
+<p>First, the images are generated off some arbitrary noise. If you wanted to generate a picture with specific features, there's no way of determining which initial noise values would produce that picture, other than searching over the entire distribution.</p>
+
+<p>Second, a generative adversarial model only discriminates between "real" and "fake" images. There's no constraints that an image of a cat has to look like a cat. This leads to results where there's no actual object in a generated image, but the style just looks like picture.</p>
+
+<p>In this post, I'll go over the variational autoencoder, a type of network that solves these two problems.</p>
+
+<h4 id="whatisavariationalautoencoder">What is a variational autoencoder?</h4>
+
+<p>To get an understanding of a VAE, we'll first start from a simple network and add parts step by step.</p>
+
+<p>An common way of describing a neural network is an approximation of some function we wish to model. However, they can also be thought of as a data structure that holds information.</p>
+
+<p>Let's say we had a network comprised of a few <a href="http://kvfrans.com/generative-adversial-networks-explained/">deconvolution layers</a>. We set the input to always be a vector of ones. Then, we can train the network to reduce the mean squared error between itself and one target image. The "data" for that image is now contained within the network's parameters.</p>
+
+<p><img src="./Variational Autoencoders Explained_files/dat.jpg" alt=""></p>
+
+<p>Now, let's try it on multiple images. Instead of a vector of ones, we'll use a one-hot vector for the input. [1, 0, 0, 0] could mean a cat image, while [0, 1, 0, 0] could mean a dog. This works, but we can only store up to 4 images. Using a longer vector means adding in more and more parameters so the network can memorize the different images.</p>
+
+<p>To fix this, we use a vector of real numbers instead of a one-hot vector. We can think of this as a code for an image, which is where the terms encode/decode come from. For example, [3.3, 4.5, 2.1, 9.8] could represent the cat image, while [3.4, 2.1, 6.7, 4.2] could represent the dog. This initial vector is known as our latent variables.</p>
+
+<p>Choosing the latent variables randomly, like I did above, is obviously a bad idea. In an autoencoder, we  add in another component that takes in the original images and encodes them into vectors for us. The deconvolutional layers then "decode" the vectors back to the original images.</p>
+
+<p><img src="./Variational Autoencoders Explained_files/autoenc.jpg" alt=""></p>
+
+<p>We've finally reached a stage where our model has some hint of a practical use. We can train our network on as many images as we want. If we save the encoded vector of an image, we can reconstruct it later by passing it into the decoder portion. What we have is the standard autoencoder.</p>
+
+<p>However, we're trying to build a generative model here, not just a fuzzy data structure that can "memorize" images. We can't generate anything yet, since we don't know how to create latent vectors other than encoding them from images.</p>
+
+<p>There's a simple solution here. We add a constraint on the encoding network, that forces it to generate latent vectors that roughly follow a unit gaussian distribution. It is this constraint that separates a variational autoencoder from a standard one.</p>
+
+<p>Generating new images is now easy: all we need to do is sample a latent vector from the unit gaussian and pass it into the decoder.</p>
+
+<p>In practice, there's a tradeoff between how accurate our network can be and how close its latent variables can match the unit gaussian distribution.</p>
+
+<p>We let the network decide this itself. For our loss term, we sum up two separate losses: the generative loss, which is a mean squared error that measures how accurately the network reconstructed the images, and a latent loss, which is the KL divergence that measures how closely the latent variables match a unit gaussian.</p>
+
+<pre class=" language-python"><code class=" language-python">generation_loss <span class="token operator">=</span> mean<span class="token punctuation">(</span>square<span class="token punctuation">(</span>generated_image <span class="token operator">-</span> real_image<span class="token punctuation">)</span><span class="token punctuation">)</span>  
+latent_loss <span class="token operator">=</span> KL<span class="token operator">-</span>Divergence<span class="token punctuation">(</span>latent_variable<span class="token punctuation">,</span> unit_gaussian<span class="token punctuation">)</span>  
+loss <span class="token operator">=</span> generation_loss <span class="token operator">+</span> latent_loss  
+</code></pre>
+
+<p>In order to optimize the KL divergence, we need to apply a simple reparameterization trick: instead of the encoder generating a vector of real values, it will generate a vector of means and a vector of standard deviations.</p>
+
+<p><img src="./Variational Autoencoders Explained_files/vae.jpg" alt=""></p>
+
+<p>This lets us calculate KL divergence as follows:  </p>
+
+<pre class=" language-python"><code class=" language-python"><span class="token comment" spellcheck="true"># z_mean and z_stddev are two vectors generated by encoder network</span>
+latent_loss <span class="token operator">=</span> <span class="token number">0.5</span> <span class="token operator">*</span> tf<span class="token punctuation">.</span>reduce_sum<span class="token punctuation">(</span>tf<span class="token punctuation">.</span>square<span class="token punctuation">(</span>z_mean<span class="token punctuation">)</span> <span class="token operator">+</span> tf<span class="token punctuation">.</span>square<span class="token punctuation">(</span>z_stddev<span class="token punctuation">)</span> <span class="token operator">-</span> tf<span class="token punctuation">.</span>log<span class="token punctuation">(</span>tf<span class="token punctuation">.</span>square<span class="token punctuation">(</span>z_stddev<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">)</span>  
+</code></pre>
+
+<p>When we're calculating loss for the decoder network, we can just sample from the standard deviations and add the mean, and use that as our latent vector:  </p>
+
+<pre class=" language-python"><code class=" language-python">samples <span class="token operator">=</span> tf<span class="token punctuation">.</span>random_normal<span class="token punctuation">(</span><span class="token punctuation">[</span>batchsize<span class="token punctuation">,</span>n_z<span class="token punctuation">]</span><span class="token punctuation">,</span><span class="token number">0</span><span class="token punctuation">,</span><span class="token number">1</span><span class="token punctuation">,</span>dtype<span class="token operator">=</span>tf<span class="token punctuation">.</span>float32<span class="token punctuation">)</span>  
+sampled_z <span class="token operator">=</span> z_mean <span class="token operator">+</span> <span class="token punctuation">(</span>z_stddev <span class="token operator">*</span> samples<span class="token punctuation">)</span>  
+</code></pre>
+
+<p>In addition to allowing us to generate random latent variables, this constraint also improves the generalization of our network.</p>
+
+<p>To visualize this, we can think of the latent variable as a transfer of data.</p>
+
+<p>Let's say you were given a bunch of pairs of real numbers between [0, 10], along with a name. For example, 5.43 means apple, and 5.44 means banana. When someone gives you the number 5.43, you know for sure they are talking about an apple. We can essentially encode infinite information this way, since there's no limit on how many different real numbers we can have between [0, 10].</p>
+
+<p>However, what if there was a gaussian noise of one added every time someone tried to tell you a number? Now when you receive the number 5.43, the original number could have been anywhere around [4.4 ~ 6.4], so the other person could just as well have meant banana (5.44). </p>
+
+<p>The greater standard deviation on the noise added, the less information we can pass using that one variable.</p>
+
+<p>Now we can apply this same logic to the latent variable passed between the encoder and decoder. The more efficiently we can encode the original image, the higher we can raise the standard deviation on our gaussian until it reaches one.</p>
+
+<p>This constraint forces the encoder to be very efficient, creating information-rich latent variables. This improves generalization, so latent variables that we either randomly generated, or we got from encoding non-training images, will produce a nicer result when decoded.</p>
+
+<h4 id="howwelldoesitwork">How well does it work?</h4>
+
+<p>I ran a few tests to see how well a variational autoencoder would work on the MNIST handwriting dataset.</p>
+
+<p><img src="./Variational Autoencoders Explained_files/mnist.jpg" alt=""></p>
+
+<blockquote>
+  <p>left: 1st epoch, middle: 9th epoch, right: original</p>
+</blockquote>
+
+<p>Looking good! After only 15 minutes on my laptop w/o a GPU, it's producing some nice results on MNIST.</p>
+
+<p>Here's something convenient about VAEs. Since they follow an encoding-decoding scheme, we can compare generated images directly to the originals, which is not possible when using a GAN.</p>
+
+<p>A downside to the VAE is that it uses direct mean squared error instead of an adversarial network, so the network tends to produce more blurry images.</p>
+
+<p>There's been some work looking into combining the VAE and the GAN: Using the same encoder-decoder setup, but using an adversarial network as a metric for training the decoder. Check out <a href="https://arxiv.org/pdf/1512.09300.pdf">this paper</a> or <a href="http://blog.otoro.net/2016/04/01/generating-large-images-from-latent-vectors/">this blog post</a> for more on that.</p>
+
+<p>You can get the code for this post on <a href="https://github.com/kvfrans/variational-autoencoder">my Github</a>. It's a cleaned up version of the code from <a href="https://jmetzen.github.io/2015-11-27/vae.html">this post</a>.</p>
+        </section>
+
+<div id="disqus_thread"><iframe id="dsq-app9072" name="dsq-app9072" allowtransparency="true" frameborder="0" scrolling="no" tabindex="0" title="Disqus" width="100%" src="./Variational Autoencoders Explained_files/saved_resource.html" style="width: 1px !important; min-width: 100% !important; border: none !important; overflow: hidden !important; height: 8965px !important;" horizontalscrolling="no" verticalscrolling="no"></iframe></div> 
+
+<script> /** * RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS. * LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables */ 
+var disqus_config = function () {
+ this.page.url = 'http://kvfrans.com/variational-autoencoders-explained/';
+ // Replace PAGE_URL with your page's canonical URL variable
+ this.page.identifier = 'http://kvfrans.com/variational-autoencoders-explained/';
+ // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+ }; 
+ (function() { // DON'T EDIT BELOW THIS LINE
+ var d = document, s = d.createElement('script');
+ s.src = '//kvfrans.disqus.com/embed.js';
+ s.setAttribute('data-timestamp', +new Date());
+ (d.head || d.body).appendChild(s);
+ })();
+ </script> 
+<noscript></noscript>
+
+        <footer class="post-footer">
+
+
+
+            <section class="author">
+                <h4><a href="http://kvfrans.com/author/kevin/">Kevin Frans</a></h4>
+
+                    <p>Read <a href="http://kvfrans.com/author/kevin/">more posts</a> by this author.</p>
+                <div class="author-meta">
+                    
+                    
+                </div>
+            </section>
+
+
+            <section class="share">
+                <h4>Share this post</h4>
+                <a class="icon-twitter" href="https://twitter.com/intent/tweet?text=Variational%20Autoencoders%20Explained&amp;url=http://kvfrans.com/variational-autoencoders-explained/" onclick="window.open(this.href, &#39;twitter-share&#39;, &#39;width=550,height=235&#39;);return false;">
+                    <span class="hidden">Twitter</span>
+                </a>
+                <a class="icon-facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://kvfrans.com/variational-autoencoders-explained/" onclick="window.open(this.href, &#39;facebook-share&#39;,&#39;width=580,height=296&#39;);return false;">
+                    <span class="hidden">Facebook</span>
+                </a>
+                <a class="icon-google-plus" href="https://plus.google.com/share?url=http://kvfrans.com/variational-autoencoders-explained/" onclick="window.open(this.href, &#39;google-plus-share&#39;, &#39;width=490,height=530&#39;);return false;">
+                    <span class="hidden">Google+</span>
+                </a>
+            </section>
+
+        </footer>
+
+    </article>
+</main>
+
+<aside class="read-next">
+    <a class="read-next-story no-cover" href="http://kvfrans.com/a-intuitive-explanation-of-natural-gradient-descent/">
+        <section class="post">
+            <h2>A intuitive explanation of natural gradient descent</h2>
+            <p>A term that sometimes shows up in machine learning is the "natural gradient". While there hasn't been much of…</p>
+        </section>
+    </a>
+    <a class="read-next-story prev no-cover" href="http://kvfrans.com/simulating-twitch-chat-with-a-recurrent-neural-network/">
+        <section class="post">
+            <h2>Simulating Twitch chat with a Recurrent Neural Network</h2>
+            <p>Is it possible for a neural network to learn how to talk like humans? Recent advances in recurrent neural…</p>
+        </section>
+    </a>
+</aside>
+
+
+
+        <footer class="site-footer clearfix">
+            <section class="copyright"><a href="http://kvfrans.com/">kevin frans blog</a> © 2020</section>
+            <section class="poweredby">Proudly published with <a href="https://ghost.org/">Ghost</a></section>
+        </footer>
+
+    </div>
+
+    <script type="text/javascript" src="./Variational Autoencoders Explained_files/jquery-1.12.0.min.js"></script>
+    <script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-53446327-4', 'auto');
+  ga('send', 'pageview');
+
+</script>
+
+    <script type="text/javascript" src="./Variational Autoencoders Explained_files/jquery.fitvids.js"></script>
+    <script type="text/javascript" src="./Variational Autoencoders Explained_files/prism.js"></script>
+    <script type="text/javascript" src="./Variational Autoencoders Explained_files/index.js"></script>
+
+
+
+<iframe style="display: none;" src="./Variational Autoencoders Explained_files/saved_resource(1).html"></iframe></body></html>
