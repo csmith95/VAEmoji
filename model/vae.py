@@ -17,17 +17,16 @@ from dataloader import EmojiDataset
 CUDA = torch.cuda.is_available()
 SEED = 1
 BATCH_SIZE = 128
-LOG_INTERVAL = 10
-EPOCHS = 10
+LOG_INTERVAL = 20
+EPOCHS = 20
 
 # connections through the autoencoder bottleneck
-# in the pytorch VAE example, this is 20
-Z_DIMS = 20
+Z_DIMS = 128
 
-torch.manual_seed(SEED)
+# torch.manual_seed(SEED)
 
-if CUDA:
-    torch.cuda.manual_seed(SEED)
+# if CUDA:
+#     torch.cuda.manual_seed(SEED)
 
 # If you load your samples in the Dataset on CPU and would like to push it 
 # during training to the GPU, you can speed up the host to device transfer by enabling pin_memory
@@ -44,35 +43,35 @@ class VAE(nn.Module):
         # ENCODER
         # encoder is pretrained resnet18 with parameter finetuning
         self.encoder = models.resnet18(pretrained=True)
-        self.encoder.fc = nn.Linear(512, 2*Z_DIMS)
+        self.mu_fc = nn.Linear(1000, Z_DIMS)
+        self.logvar_fc = nn.Linear(1000, Z_DIMS)
 
         # DECODER
-        # from latent vars to 228*228*3
-        self.d1 = nn.Linear(Z_DIMS, 224*8*2*4*4)
+        self.d1 = nn.Linear(Z_DIMS, 256*8*2*4*4)
 
         self.up1 = nn.UpsamplingNearest2d(scale_factor=2)
         self.pd1 = nn.ReplicationPad2d(1)
-        self.d2 = nn.Conv2d(224*8*2, 224*8, 3, 1)
-        self.bn6 = nn.BatchNorm2d(224*8, 1.e-3)
+        self.d2 = nn.Conv2d(256*8*2, 256*8, 3, 1)
+        self.bn6 = nn.BatchNorm2d(256*8, 1.e-3)
 
         self.up2 = nn.UpsamplingNearest2d(scale_factor=2)
         self.pd2 = nn.ReplicationPad2d(1)
-        self.d3 = nn.Conv2d(224*8, 224*4, 3, 1)
-        self.bn7 = nn.BatchNorm2d(224*4, 1.e-3)
+        self.d3 = nn.Conv2d(256*8, 256*4, 3, 1)
+        self.bn7 = nn.BatchNorm2d(256*4, 1.e-3)
 
         self.up3 = nn.UpsamplingNearest2d(scale_factor=2)
         self.pd3 = nn.ReplicationPad2d(1)
-        self.d4 = nn.Conv2d(224*4, 224*2, 3, 1)
-        self.bn8 = nn.BatchNorm2d(224*2, 1.e-3)
+        self.d4 = nn.Conv2d(256*4, 256*2, 3, 1)
+        self.bn8 = nn.BatchNorm2d(256*2, 1.e-3)
 
         self.up4 = nn.UpsamplingNearest2d(scale_factor=2)
         self.pd4 = nn.ReplicationPad2d(1)
-        self.d5 = nn.Conv2d(224*2, 224, 3, 1)
-        self.bn9 = nn.BatchNorm2d(224, 1.e-3)
+        self.d5 = nn.Conv2d(256*2, 256, 3, 1)
+        self.bn9 = nn.BatchNorm2d(256, 1.e-3)
 
-        self.up5 = nn.UpsamplingNearest2d(scale_factor=2)
+        self.up5 = nn.UpsamplingNearest2d(scale_factor=4)
         self.pd5 = nn.ReplicationPad2d(1)
-        self.d6 = nn.Conv2d(224, 3, 3, 1)
+        self.d6 = nn.Conv2d(256, 3, 3, 1)
 
         self.leakyrelu = nn.LeakyReLU(0.2)
         self.relu = nn.ReLU()
@@ -94,8 +93,10 @@ class VAE(nn.Module):
 
         """
 
-        latent_vars = self.encoder(x)
-        return latent_vars[:, : Z_DIMS], latent_vars[:, Z_DIMS:]  # first is means, second is log(vars)
+        resnet_output = self.encoder(x)
+        mu = self.mu_fc(resnet_output)
+        logvar = self.logvar_fc(resnet_output)
+        return mu, logvar
 
     def reparameterize(self, mu, logvar):
         """THE REPARAMETERIZATION IDEA:
@@ -142,7 +143,7 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h1 = self.relu(self.d1(z))
-        h1 = h1.view(-1, 224*8*2, 4, 4)
+        h1 = h1.view(-1, 256*8*2, 4, 4)
         h2 = self.leakyrelu(self.bn6(self.d2(self.pd1(self.up1(h1)))))
         h3 = self.leakyrelu(self.bn7(self.d3(self.pd2(self.up2(h2)))))
         h4 = self.leakyrelu(self.bn8(self.d4(self.pd3(self.up3(h3)))))
@@ -161,7 +162,7 @@ if CUDA:
 
 def loss_function(recon_x, x, mu, logvar):
     # how well do input x and output recon_x agree?
-    BCE = F.binary_cross_entropy(recon_x, x.view(-1, 224*224*3))
+    BCE = F.binary_cross_entropy(recon_x, x)
 
     # KLD is Kullback–Leibler divergence -- how much does one learned
     # distribution deviate from another, in this specific case the
@@ -174,7 +175,7 @@ def loss_function(recon_x, x, mu, logvar):
     # note the negative D_{KL} in appendix B of the paper
     KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
     # Normalise by same number of elements as in reconstruction
-    KLD /= BATCH_SIZE * 784
+    KLD /= BATCH_SIZE * (256*256*3)
 
     # BCE tries to make our reconstruction as accurate as possible
     # KLD tries to push the distributions as close as possible to unit Gaussian
@@ -206,13 +207,16 @@ def train(epoch):
         # calculate the gradient of the loss w.r.t. the graph leaves
         # i.e. input variables -- by the power of pytorch!
         loss.backward()
-        train_loss += loss.data[0]
+        train_loss += loss.data
         optimizer.step()
         if batch_idx % LOG_INTERVAL == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader),
-                loss.data[0] / len(data)))
+                loss.data / len(data)))
+
+            save_image(data.data, '../results/progress/epoch_{}_batch_{}_data.png'.format(epoch, batch_idx), nrow=8, padding=2)
+            save_image(recon_batch.data, '../results/progress/epoch_{}_batch_{}_recon.png'.format(epoch, batch_idx), nrow=8, padding=2)
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
           epoch, train_loss / len(train_loader.dataset)))
@@ -221,14 +225,18 @@ def train(epoch):
 for epoch in range(1, EPOCHS + 1):
     train(epoch)
 
+    if epoch == 1 or epoch % 5 == 0:
+        torch.save(model.state_dict(), 'checkpoints/{}.pth'.format(epoch))
+
     # 64 sets of random Z_DIMS-float vectors, i.e. 64 emojis
-    sample = Variable(torch.randn(64, Z_DIMS))
+    sample = Variable(torch.randn(9, Z_DIMS))
     if CUDA:
         sample = sample.cuda()
+    print("decoding sample")
     sample = model.decode(sample).cpu()
+    print('decoded')
 
-    # save out as an 8x8 matrix of emojis
+    # save out as an 3x3 matrix of emojis
     # this will give you a visual idea of how well latent space can generate things
     # that look like digits
-    # save_image(sample.data.view(64, 1, 28, 28),
-    #            'results/sample_' + str(epoch) + '.png')
+    save_image(sample.data, '../results/samples/epoch_{}.png'.format(epoch), nrow=3, padding=2)

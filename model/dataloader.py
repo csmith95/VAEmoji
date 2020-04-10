@@ -32,7 +32,7 @@ class EmojiDataset(Dataset):
 
 	def __len__(self):
 		'Denotes the total number of samples'
-		return 256
+		return 128
 
 	def __getitem__(self, index):
 		'Generates one sample of data'

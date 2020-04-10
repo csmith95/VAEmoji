@@ -15,18 +15,13 @@ def download_image(url, image_file_path):
 	if r.status_code != requests.codes.ok:
 		return 'Failed'
 
-	stream = io.BytesIO(r.content)
-	with Image.open(stream) as image:
-		image = image.resize((224, 224))
-		# newData = []
-		# for item in image.getdata():
-		# 	if item[-1] == 0:
-		# 		newData.append((255, 255, 255, 255))
-		# 	else:
-		# 		newData.append(item)
-
-		# image.putdata(newData)
-		image.save(image_file_path)
+	# replace transparent pixels with white pixels
+	# https://stackoverflow.com/questions/31273592/valueerror-bad-transparency-mask-when-pasting-one-image-onto-another-with-pyt
+	with Image.open(io.BytesIO(r.content)) as image:
+		image = image.resize((256, 256)).convert("RGBA")
+		new_image = Image.new("RGBA", image.size, "WHITE")
+		new_image.paste(image, (0, 0), image)
+		new_image.save(image_file_path)
 
 	return 'Success'
 
@@ -37,7 +32,7 @@ except FileNotFoundError:
 	pass # do nothing
 os.mkdir('images')
 
-with ThreadPoolExecutor(max_workers = 8) as executor:
+with ThreadPoolExecutor(max_workers = 6) as executor:
 	with open('image_urls.json') as f:
 		future_to_url = {}
 		for i, image_meta in enumerate(json.load(f)):
