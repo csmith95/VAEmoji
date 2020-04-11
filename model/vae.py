@@ -17,7 +17,7 @@ from dataloader import EmojiDataset
 CUDA = torch.cuda.is_available()
 SEED = 1
 BATCH_SIZE = 128
-LOG_INTERVAL = 20
+LOG_INTERVAL = 10
 EPOCHS = 20
 
 # connections through the autoencoder bottleneck
@@ -43,8 +43,8 @@ class VAE(nn.Module):
         # ENCODER
         # encoder is pretrained resnet18 with parameter finetuning
         self.encoder = models.resnet18(pretrained=True)
-        self.mu_fc = nn.Linear(1000, Z_DIMS)
-        self.logvar_fc = nn.Linear(1000, Z_DIMS)
+        self.mu_fc = nn.Linear(self.encoder.classifier.in_features, Z_DIMS)
+        self.logvar_fc = nn.Linear(self.encoder.classifier.in_features, Z_DIMS)
 
         # DECODER
         self.d1 = nn.Linear(Z_DIMS, 256*8*2*4*4)
@@ -190,6 +190,8 @@ def train(epoch):
     model.train()
     train_loss = 0.0
 
+    print("Starting epoch {}...".format(epoch))
+
     # in the case of emoji dataset, len(train_loader.dataset) is ~3000
     # each `data` is of BATCH_SIZE samples and has shape [128, 1, 128, 128]
     for batch_idx, data in enumerate(train_loader):
@@ -232,9 +234,7 @@ for epoch in range(1, EPOCHS + 1):
     sample = Variable(torch.randn(9, Z_DIMS))
     if CUDA:
         sample = sample.cuda()
-    print("decoding sample")
     sample = model.decode(sample).cpu()
-    print('decoded')
 
     # save out as an 3x3 matrix of emojis
     # this will give you a visual idea of how well latent space can generate things
