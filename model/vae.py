@@ -43,8 +43,8 @@ class VAE(nn.Module):
         # ENCODER
         # encoder is pretrained resnet18 with parameter finetuning
         self.encoder = models.resnet18(pretrained=True)
-        self.mu_fc = nn.Linear(self.encoder.classifier.in_features, Z_DIMS)
-        self.logvar_fc = nn.Linear(self.encoder.classifier.in_features, Z_DIMS)
+        self.mu_fc = nn.Linear(1000, Z_DIMS)
+        self.logvar_fc = nn.Linear(1000, Z_DIMS)
 
         # DECODER
         self.d1 = nn.Linear(Z_DIMS, 256*8*2*4*4)
